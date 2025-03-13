@@ -2,46 +2,32 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/lyzsolar/ApiConsumer/application/domain"
-	"github.com/lyzsolar/ApiConsumer/application/service"
-	"github.com/lyzsolar/ApiConsumer/config"
-	"github.com/lyzsolar/ApiConsumer/infrastructure/repository"
+	"github.com/lyzsolar/ApiConsumer/citas/infrastructure"
+	"github.com/lyzsolar/ApiConsumer/citas/infrastructure/routes"
 	"log"
-	"net/http"
 )
 
 func main() {
-	// Crear servidor Gin
+	dependencies := infrastructure.InitCita()
+	defer dependencies.RabbitMQAdapter.Close()
+
 	r := gin.Default()
 
-	// Conectar a la base de datos
-	db := config.ConectarDB()
-	defer db.Close()
+	r.Use(func(context *gin.Context) {
+		context.Header("Access-Control-Allow-Origin", "*")
+		context.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		context.Header("Access-Control-Allow-Headers", "Access-Control-Allow-Origin, Content-Type")
 
-	// Crear repositorio y servicio
-	repo := repository.NewCitaRepository(db)
-	citaService := service.NewCitaService(repo)
-
-	// Definir el endpoint POST /citas
-	r.POST("/citas", func(c *gin.Context) {
-		var nuevaCita domain.Cita
-		// Validar que la solicitud tenga los datos correctos
-		if err := c.ShouldBindJSON(&nuevaCita); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Datos inválidos"})
+		if context.Request.Method == "OPTIONS" {
+			context.AbortWithStatus(204)
 			return
 		}
-
-		// Crear la cita
-		if err := citaService.CrearCita(nuevaCita); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error guardando la cita"})
-			return
-		}
-
-		// Respuesta de éxito
-		c.JSON(http.StatusOK, gin.H{"message": "Cita creada correctamente"})
+		context.Next()
 	})
 
-	// Iniciar el servidor en el puerto 8081
-	log.Println("Servidor en el puerto 8081")
-	r.Run(":8081")
+	routes.ConfigureRoutesCita(r, dependencies.CreateCitaController)
+
+	if err := r.Run(":8088"); err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
 }
