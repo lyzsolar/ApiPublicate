@@ -6,6 +6,7 @@ import (
 	"github.com/lyzsolar/ApiConsumer/citas/domain/entities"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"net/url"
 )
 
 type RabbitMQAdapter struct {
@@ -15,7 +16,11 @@ type RabbitMQAdapter struct {
 }
 
 func NewRabbitMQAdapter() (*RabbitMQAdapter, error) {
-	conn, err := amqp.Dial("")
+	password := url.QueryEscape("")
+	connStr := "" + password + ""
+
+	conn, err := amqp.Dial(connStr)
+
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to RabbitMQ: %v", err)
 	}
